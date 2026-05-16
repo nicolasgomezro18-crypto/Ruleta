@@ -242,15 +242,13 @@
   <div class="card">
     <h3>3. Pega tu lista de clientes</h3>
     <label for="clientList">Nombre + WhatsApp — selecciona ambas columnas en Excel/Sheets y pega aquí</label>
-    <textarea id="clientList" placeholder="Carolina Restrepo	3001234567
-Juan Pérez	3109876543
-María González	3207654321
-Laura Jaramillo	3157001122
+    <textarea id="clientList" placeholder="Carolina Restrepo 3001234567
+Juan Pérez, 3109876543
+María González 3207654321
+Laura Jaramillo
 ..."></textarea>
     <div class="field-help">
-      Selecciona las columnas <strong>Nombre</strong> y <strong>WhatsApp</strong> en Excel o Sheets y pega directo aquí.
-      El separador entre columnas es el tabulador (se pega automáticamente desde Excel).
-      Si solo pegas nombres sin número, el botón WA abrirá WhatsApp sin destinatario.
+      Escribe o pega <strong>un cliente por línea</strong>. El número puede ir antes o después del nombre, separado por espacio o coma. También funciona pegando directamente desde Excel (dos columnas). Si un cliente no tiene número, igual se genera el link y el botón WA te pedirá elegir el contacto.
     </div>
   </div>
 
@@ -376,21 +374,22 @@ Laura Jaramillo	3157001122
     const duplicates = [];
 
     rawLines.forEach((line, idx) => {
-      // Separar por tabulador (pega desde Excel) o por múltiples espacios
-      const parts = line.split(/\t|  +/);
-      const name = (parts[0] || '').trim();
+      // Extraer número: buscar bloque de 10+ dígitos en cualquier posición de la línea
+      // Acepta: "Nicolas Gomez 3148156294", "Nicolas,3148156294", "Nicolas\t3148156294"
+      const phoneMatch = line.match(/(?:^|[\s,;|\t])((?:57)?3[0-9]{9})(?:[\s,;|\t]|$)/)
+                      || line.match(/(3[0-9]{9,})/);
+      let rawNum = phoneMatch ? phoneMatch[1].replace(/[^0-9]/g, '') : '';
+
+      // Quitar el número del texto para quedarse solo con el nombre
+      let namePart = rawNum ? line.replace(phoneMatch[0], ' ') : line;
+      // Limpiar separadores y espacios sobrantes del nombre
+      const name = namePart.replace(/[,;|\t]+/g, ' ').replace(/\s+/g, ' ').trim();
       if (!name) return;
 
-      // Número: limpiar y agregar prefijo si falta
-      let rawNum = (parts[1] || '').trim().replace(/[^0-9]/g, '');
+      // Agregar prefijo si el número no lo tiene aún
       let phone = '';
       if (rawNum){
-        // Si ya tiene prefijo (más de 10 dígitos para Colombia), usarlo tal cual
-        if (rawNum.length > 10){
-          phone = rawNum;
-        } else {
-          phone = prefix + rawNum;
-        }
+        phone = rawNum.length > 10 ? rawNum : prefix + rawNum;
       }
 
       const normalizedName = name.toLowerCase();
