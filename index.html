@@ -653,16 +653,15 @@
   const SECRET = "ferrati2026";
   const WHATSAPP_NUMBER = "573244073508"; // Sin + ni espacios. Formato: código país + número
 
-  // Probabilidades ajustadas (descuentos altos reducidos)
+  // Probabilidades base 1000 → 15% y 20% frecuentes; 25%-50% cola larga improbable
   const SEGMENTS = [
-    {label:"5%",  value:5,  color:"#0B1220", weight:8},
-    {label:"10%", value:10, color:"#E30613", weight:28},
-    {label:"15%", value:15, color:"#0B1220", weight:27},
-    {label:"20%", value:20, color:"#F26522", weight:22},
-    {label:"25%", value:25, color:"#E30613", weight:8},
-    {label:"30%", value:30, color:"#0B1220", weight:4},
-    {label:"40%", value:40, color:"#F26522", weight:2},
-    {label:"50%", value:50, color:"#E30613", weight:1}
+    {label:"15%", value:15, color:"#0B1220", weight:600},
+    {label:"20%", value:20, color:"#E30613", weight:367},
+    {label:"25%", value:25, color:"#F26522", weight:10},
+    {label:"30%", value:30, color:"#0B1220", weight:8},
+    {label:"35%", value:35, color:"#E30613", weight:6},
+    {label:"40%", value:40, color:"#F26522", weight:5},
+    {label:"50%", value:50, color:"#0B1220", weight:4}
   ];
 
   // ============ FIRMA / VERIFICACIÓN ============
