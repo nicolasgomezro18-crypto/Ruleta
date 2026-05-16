@@ -230,15 +230,27 @@
   </div>
 
   <div class="card">
-    <h3>2. Pega tu lista de clientes</h3>
-    <label for="clientList">Lista de nombres (uno por línea)</label>
-    <textarea id="clientList" placeholder="Carolina Restrepo
-Juan Pérez
-María González
-Laura Jaramillo
+    <h3>2. Prefijo de WhatsApp</h3>
+    <label for="waPrefix">Código de país (sin + ni espacios)</label>
+    <input type="text" id="waPrefix" placeholder="57" value="57" maxlength="4" style="max-width:120px">
+    <div class="field-help">
+      Colombia → <code>57</code> · México → <code>52</code> · Venezuela → <code>58</code> · Perú → <code>51</code>.
+      Se aplica a todos los números si tu lista no los incluye con el código de país.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>3. Pega tu lista de clientes</h3>
+    <label for="clientList">Nombre + WhatsApp — selecciona ambas columnas en Excel/Sheets y pega aquí</label>
+    <textarea id="clientList" placeholder="Carolina Restrepo	3001234567
+Juan Pérez	3109876543
+María González	3207654321
+Laura Jaramillo	3157001122
 ..."></textarea>
     <div class="field-help">
-      Pega un nombre por línea. Puedes copiarlos directamente de Excel o Google Sheets — toma solo la columna de nombres. <strong>No incluyas WhatsApp, email u otros datos</strong>, solo nombres.
+      Selecciona las columnas <strong>Nombre</strong> y <strong>WhatsApp</strong> en Excel o Sheets y pega directo aquí.
+      El separador entre columnas es el tabulador (se pega automáticamente desde Excel).
+      Si solo pegas nombres sin número, el botón WA abrirá WhatsApp sin destinatario.
     </div>
   </div>
 
@@ -266,6 +278,7 @@ Laura Jaramillo
           <thead>
             <tr>
               <th>Cliente</th>
+              <th>Teléfono</th>
               <th>Código</th>
               <th>Link</th>
               <th></th>
@@ -328,64 +341,73 @@ Laura Jaramillo
   function generate(){
     const baseUrl = document.getElementById('baseUrl').value.trim();
     const listText = document.getElementById('clientList').value.trim();
+    const prefixRaw = document.getElementById('waPrefix').value.trim();
+    const prefix = prefixRaw.replace(/[^0-9]/g, '') || '57';
 
     if (!baseUrl){
       alert('Por favor ingresa la URL base donde subiste la ruleta.');
       document.getElementById('baseUrl').focus();
       return;
     }
-
     if (!baseUrl.startsWith('http')){
       alert('La URL debe comenzar con https:// o http://');
       return;
     }
-
     if (!listText){
       alert('Por favor pega tu lista de clientes.');
       document.getElementById('clientList').focus();
       return;
     }
 
-    const names = listText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
-    if (names.length === 0){
-      alert('No se encontraron nombres válidos en la lista.');
+    const rawLines = listText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    if (rawLines.length === 0){
+      alert('No se encontraron clientes válidos en la lista.');
       return;
     }
 
     // Normalizar URL base
     let cleanBase = baseUrl;
     if (cleanBase.endsWith('/')) cleanBase = cleanBase.slice(0, -1);
-    // Si la URL no termina en .html, asumimos que es la carpeta y agregamos index.html (opcional)
-    // Mejor dejar que el usuario decida — solo nos aseguramos que apunte a index.html si no tiene extensión
-    if (!cleanBase.match(/\.html?(\?|$)/i)){
-      // Mantenerlo como está, los GitHub Pages sirven index.html automáticamente
-    }
 
     generatedAt = Date.now();
     generatedLinks = [];
 
-    // Detectar duplicados de nombres
     const seenNames = new Set();
     const duplicates = [];
 
-    names.forEach((name, idx) => {
-      const normalizedName = name.toLowerCase();
-      if (seenNames.has(normalizedName)){
-        duplicates.push(name);
+    rawLines.forEach((line, idx) => {
+      // Separar por tabulador (pega desde Excel) o por múltiples espacios
+      const parts = line.split(/\t|  +/);
+      const name = (parts[0] || '').trim();
+      if (!name) return;
+
+      // Número: limpiar y agregar prefijo si falta
+      let rawNum = (parts[1] || '').trim().replace(/[^0-9]/g, '');
+      let phone = '';
+      if (rawNum){
+        // Si ya tiene prefijo (más de 10 dígitos para Colombia), usarlo tal cual
+        if (rawNum.length > 10){
+          phone = rawNum;
+        } else {
+          phone = prefix + rawNum;
+        }
       }
+
+      const normalizedName = name.toLowerCase();
+      if (seenNames.has(normalizedName)) duplicates.push(name);
       seenNames.add(normalizedName);
 
       const code = generatePersonalCode(name, idx);
       const sig = generateSignature(name, code);
       const url = `${cleanBase}/?n=${encodeURIComponent(name)}&c=${code}&s=${sig}`;
-      generatedLinks.push({name, code, url});
+      generatedLinks.push({name, phone, code, url});
     });
 
     renderResults();
 
     if (duplicates.length > 0){
       setTimeout(() => {
-        alert('Atención: se detectaron ' + duplicates.length + ' nombres repetidos. Cada uno recibió un código diferente, pero te recomendamos revisar la lista para evitar confusiones:\n\n' + duplicates.slice(0, 10).join('\n') + (duplicates.length > 10 ? '\n...' : ''));
+        alert('Atención: se detectaron ' + duplicates.length + ' nombres repetidos. Cada uno recibió un código diferente, pero revisa tu lista:\n\n' + duplicates.slice(0, 10).join('\n') + (duplicates.length > 10 ? '\n...' : ''));
       }, 300);
     }
   }
@@ -396,6 +418,7 @@ Laura Jaramillo
     tbody.innerHTML = generatedLinks.map((item, i) => `
       <tr>
         <td class="col-name">${escapeHtml(item.name)}</td>
+        <td style="font-size:11px;color:rgba(244,241,236,.6)">${item.phone ? '+'+escapeHtml(item.phone) : '<span style="opacity:.4">—</span>'}</td>
         <td><code style="font-size:11px;color:var(--orange)">${item.code}</code></td>
         <td class="col-link">${escapeHtml(item.url)}</td>
         <td class="col-actions">
@@ -429,8 +452,11 @@ Laura Jaramillo
     const item = generatedLinks[idx];
     const firstName = item.name.split(' ')[0];
     const message = `¡Hola ${firstName}! 🏁 Tenemos una sorpresa para ti de parte de Ferrati Sport. Gira la ruleta y gana tu descuento exclusivo:\n\n${item.url}`;
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(waUrl, '_blank');
+    // Si hay número, abrir chat directo; si no, abrir selección de contacto
+    const base = item.phone
+      ? `https://wa.me/${item.phone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(base, '_blank');
   }
 
   function copyAllAsCSV(){
@@ -441,13 +467,13 @@ Laura Jaramillo
   }
 
   function buildCSV(){
-    const header = 'Nombre,Código,Link\n';
+    const header = 'Nombre,Teléfono,Código,Link\n';
     const rows = generatedLinks.map(item => {
-      // Escapar comas y comillas en CSV
       const name = '"' + item.name.replace(/"/g, '""') + '"';
+      const phone = item.phone ? '+' + item.phone : '';
       const code = item.code;
       const url = '"' + item.url.replace(/"/g, '""') + '"';
-      return `${name},${code},${url}`;
+      return `${name},${phone},${code},${url}`;
     }).join('\n');
     return header + rows;
   }
